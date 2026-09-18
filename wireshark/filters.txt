@@ -1,0 +1,20 @@
+# Support Automation - Wireshark Filters
+# Paste in Wireshark filter bar
+
+# SIP Failures
+sip.Status-Code == 401 || sip.Status-Code == 403 || sip.Status-Code == 486
+
+# One-Way Audio / RTP Issues
+rtp && !rtcp
+rtp.ssrc == 0
+
+# NAT / STUN Issues
+stun
+sip contains "private" && ip.dst != 192.168.0.0/16
+
+# Call Quality - High Jitter/Packet Loss
+rtp.marker == 1
+rtcp
+
+# API Issues
+http.response.code >= 400
