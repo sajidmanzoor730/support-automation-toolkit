@@ -1,0 +1,21 @@
+{
+  "info": { "name": "VoIP API Health Check - Support Automation", "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json" },
+  "item": [
+    {
+      "name": "Check SIP Registration Status",
+      "request": { "method": "GET", "url": "{{base_url}}/api/v1/sip/status" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('Status is 200', function(){ pm.response.to.have.status(200); });", "pm.test('Response time <500ms', function(){ pm.expect(pm.response.responseTime).to.be.below(500); });", "pm.test('SIP Registered', function(){ var json = pm.response.json(); pm.expect(json.registered).to.eql(true); });"] } }]
+    },
+    {
+      "name": "Check Call Quality Metrics",
+      "request": { "method": "GET", "url": "{{base_url}}/api/v1/calls/quality?last=1h" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('No packet loss >5%', function(){ var json = pm.response.json(); pm.expect(json.packet_loss).to.be.below(5); });"] } }]
+    },
+    {
+      "name": "Auth Token Validation",
+      "request": { "method": "POST", "url": "{{base_url}}/api/v1/auth/validate" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('Auth Valid', function(){ pm.response.to.have.status(200); });"] } }]
+    }
+  ],
+  "variable": [{ "key": "base_url", "value": "https://api.yourvoip.com" }]
+}
