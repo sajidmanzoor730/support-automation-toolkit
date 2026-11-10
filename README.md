@@ -1,240 +1,122 @@
-Python & Bash Automation
+# Support Automation Toolkit
 
-A practical automation toolkit for operational data processing, log analysis, validation, and repeatable troubleshooting workflows using Python, Bash, SQL, and API-based workflows.
+A practical VoIP support-investigation toolkit that brings together SIP log parsing, API health-check definitions, support-metrics SQL examples and Wireshark display-filter references.
 
-Project Overview
+The goal is to make common investigation steps more repeatable and easier to hand over—not to diagnose or remediate a production call automatically.
 
-This project demonstrates how repetitive operational tasks can be converted into structured, repeatable workflows.
+## What is included
 
-The focus is on:
+| Area | File | Purpose |
+|---|---|---|
+| SIP log analysis | `postman/sip_log_parser.py` | Count SIP response codes, flag a simple RTP/no-RTCP text pattern and export a CSV summary |
+| API validation | `postman/voip-api-health.json` | Postman collection with registration, response-time, packet-loss and authentication assertions |
+| Support reporting | `sql/support_metrics.sql` | Example SQL for issue volume, CSAT/SLA reporting and knowledge-base-linked tickets |
+| Packet investigation | `wireshark/filters.txt` | Display-filter starting points for SIP, RTP/RTCP, STUN and HTTP errors |
+| Project notes | `VOIP-SUPPORT-AUTOMATION.md` | Context and impact figures recorded in the original project notes |
 
-- Log parsing and structured data extraction
-- Data validation and quality checks
-- SQL-based operational analysis
-- API health checks
-- Repeatable command-line workflows
-- Troubleshooting documentation
-- Automation-ready operational processes
+## Investigation workflow
 
-1. Log Analysis
+```text
+Support symptom
+      |
+      v
+Collect the relevant SIP / API / packet evidence
+      |
+      +--> Parse SIP response codes and export a CSV summary
+      |
+      +--> Run configured API assertions against a supplied endpoint
+      |
+      +--> Inspect SIP, RTP/RTCP and STUN traffic in Wireshark
+      |
+      +--> Query an available support database for reporting
+      |
+      v
+Engineer reviews evidence, confirms root cause and documents next steps
+```
 
-Python scripts can be used to parse structured and semi-structured operational logs and extract useful information for analysis.
+## 1. SIP log parser
 
-Typical outputs include:
+The Python script reads `sip.log` from the current working directory. It counts occurrences matching `SIP/2.0 NNN`, looks for lines matching the text pattern `RTP.*no RTCP`, and writes `sip_rca_report.csv`.
 
-- Error counts
-- Event frequency
-- Failure categories
-- Timestamp-based patterns
-- Repeated issues
-- Operational exceptions
+### Run
 
-Example workflow:
+```bash
+python -m pip install --upgrade pip
+# Place an authorised, sanitised text log named sip.log in this directory
+python postman/sip_log_parser.py
+```
 
-Raw Logs
-   ↓
-Python Parser
-   ↓
-Structured Records
-   ↓
-Validation
-   ↓
-SQL Analysis
-   ↓
-Operational Report
+The CSV contains `SIP Code`, `Count` and a suggested `Action` column. The action is a basic routing hint:
+- `401` / `403`: check authentication and the full registration exchange.
+- `486`: review the call flow and relevant network / endpoint context.
+- Other codes: review the complete trace.
 
-2. Python Automation
+**Important:** this is a text-pattern counter, not a complete SIP parser or root-cause engine. A SIP 401 may be a normal authentication challenge. The RTP/no-RTCP match is only a heuristic and does not prove one-way audio. Confirm findings with a full SIP ladder, packet capture, endpoint configuration and call context.
 
-Python is used for repeatable data-processing and operational tasks.
+## 2. Postman API health checks
 
-Example capabilities:
+Import `postman/voip-api-health.json` into Postman. The collection defines checks for:
+- SIP registration endpoint returns HTTP 200, responds in under 500 ms and reports `registered: true`.
+- Call-quality endpoint reports packet loss below 5%.
+- Authentication validation endpoint returns HTTP 200.
 
-- Parse log files
-- Extract structured fields
-- Detect recurring errors
-- Validate records
-- Transform data for analysis
-- Generate summary outputs
-- Support repeatable quality checks
+Before running it, configure the `base_url` collection variable for an authorised test environment and confirm that the endpoint paths and response fields match that API.
 
-Example:
+The committed collection is a test definition. No production endpoint, credentials, exported Postman run or passing live test result is included in this repository.
 
-import re
-from collections import Counter
+## 3. Wireshark filter reference
 
-errors = []
+Open `wireshark/filters.txt` and use the relevant display-filter starting points while inspecting an authorised capture:
+- SIP response codes such as 401, 403 and 486.
+- RTP and RTCP traffic.
+- STUN traffic for NAT traversal investigation.
+- HTTP responses with status codes of 400 or higher.
 
-with open("application.log", "r", encoding="utf-8") as file:
-    for line in file:
-        match = re.search(r"ERROR_CODE=(\d+)", line)
+Filters narrow the evidence to inspect; they do not establish the cause by themselves. Interpret them with the call flow, endpoints, network path and capture direction.
 
-        if match:
-            errors.append(match.group(1))
+## 4. SQL support metrics
 
-error_counts = Counter(errors)
+`sql/support_metrics.sql` contains example queries for:
+- Issue volume by issue type over the last 30 days.
+- Average CSAT and SLA compliance.
+- Ticket counts linked to knowledge-base articles.
 
-for code, count in error_counts.items():
-    print(code, count)
+The queries assume tables and columns such as `tickets`, `ticket_kb_link`, `created_at`, `issue_type`, `csat_score` and `sla_breached`. A database schema, sample database and query execution output are not included. Adapt the names, SQL dialect and business definitions to the actual service-desk system before use.
 
-3. SQL Analysis
+## Evidence and limitations
 
-Structured operational records can be loaded into SQL for further analysis.
+The original `VOIP-SUPPORT-AUTOMATION.md` notes record figures including 40% repeatable L1 patterns, 35% lower manual L1 effort, 28% KB/macro deflection and 95%+ CSAT. The notes do not include a dated ticket export, sample size, baseline calculation, measurement window or independent test evidence. Treat these as reported project-note figures, not independently verified results from this repository.
 
-Example analysis areas:
+This repository does not contain customer logs, production call recordings, credentials, a live VoIP endpoint, a support database, or an exported test run. The toolkit supports investigation and reporting; an engineer must validate evidence and approve any customer-impacting change.
 
-- Error frequency
-- Issue categories
-- Resolution trends
-- SLA performance
-- Repeat issues
-- Operational volume
-- Time-based patterns
+## Technology
 
-Example query:
-
-SELECT
-    error_code,
-    COUNT(*) AS error_count
-FROM operational_logs
-GROUP BY error_code
-ORDER BY error_count DESC;
-
-4. API Health Checks
-
-API workflows can be tested using repeatable health-check processes.
-
-Checks can include:
-
-- HTTP status codes
-- Response time
-- Authentication status
-- Required response fields
-- Error responses
-- Endpoint availability
-
-Example workflow:
-
-API Request
-   ↓
-Status Check
-   ↓
-Response Validation
-   ↓
-Performance Check
-   ↓
-Result Logged
-
-5. Bash Automation
-
-Bash commands can be used to simplify recurring operational tasks.
-
-Examples:
-
-grep "ERROR" application.log
-
-grep "ERROR" application.log | wc -l
-
-grep "WARNING" application.log > warnings.log
-
-These workflows can be combined with Python scripts to create repeatable data-processing pipelines.
-
-6. Data Validation
-
-Automation can also support basic data-quality checks before analysis.
-
-Example checks:
-
-- Missing values
-- Duplicate records
-- Invalid formats
-- Unexpected categories
-- Invalid timestamps
-- Empty records
-- Unexpected error codes
-
-A simple validation workflow:
-
-Input Data
-   ↓
-Schema Check
-   ↓
-Missing-Value Check
-   ↓
-Duplicate Check
-   ↓
-Format Validation
-   ↓
-Clean Output
-
-7. Operational Workflow
-
-The overall approach is designed around reducing repetitive manual work and making operational analysis easier to reproduce.
-
-Collect
-  ↓
-Parse
-  ↓
-Validate
-  ↓
-Transform
-  ↓
-Analyze
-  ↓
-Document
-
-This structure can be adapted to support operations reporting, data-quality workflows, technical investigations, and KPI analysis.
-
-Project Structure
-
-python-bash-automation/
-│
-├── scripts/
-│   └── log_parser.py
-│
-├── bash/
-│   └── operational_checks.sh
-│
-├── sql/
-│   └── operational_analysis.sql
-│
-├── docs/
-│   └── workflow.md
-│
-└── README.md
-
-Tools & Technologies
-
-- Python
-- Bash
+- Python 3
+- Regular expressions and CSV
+- Postman collection format v2.1
 - SQL
-- Regular Expressions
-- REST APIs
-- JSON
-- Linux
-- Git
+- Wireshark display filters
 
-What This Project Demonstrates
+## Repository structure
 
-- Python-based automation
-- Operational data processing
-- Log parsing
-- SQL analysis
-- Data validation
-- API testing
-- Repeatable workflows
-- Technical documentation
-- Root-cause investigation
+```text
+support-automation-toolkit/
+├── README.md
+├── VOIP-SUPPORT-AUTOMATION.md
+├── postman/
+│   ├── sip_log_parser.py
+│   └── voip-api-health.json
+├── sql/
+│   └── support_metrics.sql
+└── wireshark/
+    └── filters.txt
+```
 
-Analyst Relevance
+## Links
 
-Although the project includes technical operations workflows, the underlying approach is directly applicable to data analytics:
-
-collect → clean → validate → transform → analyze → report
-
-This project demonstrates the ability to turn operational information into structured data that can be analyzed and used for decision-making.
+- [Portfolio case study](https://sajidmanzoor730.github.io/sajid-portfolio/voip-support-automation.html)
+- [GitHub repository](https://github.com/sajidmanzoor730/support-automation-toolkit)
 
 ---
 
-Built by Sajid Manzoor
-
-Data Analyst | SQL | Python | Power BI | Excel
+Built by **Sajid Manzoor** · Technical Support & Operations
